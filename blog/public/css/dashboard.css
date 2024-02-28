@@ -1,0 +1,37 @@
+/* Custom styles for animation */
+@keyframes fadeInOut {
+    0%, 100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes grow {
+    from {
+        transform: scale(0.8);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+#roles p {
+    animation: fadeInOut 5s ease-in-out infinite;
+}
+
+.reveal {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.8s, transform 0.8s;
+}
+
+.revealed {
+    opacity: 1;
+    transform: scale(1);
+    animation: grow 0.8s ease-in-out forwards;
+}
+
+
