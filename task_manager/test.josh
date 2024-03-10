@@ -1,0 +1,3 @@
+            <x-responsive-nav-link :href="route('tasks.show', ['task' => $task->id])" :active="request()->routeIs('tasks.show')">
+                {{ __('Tasks') }}
+            </x-responsive-nav-link>
