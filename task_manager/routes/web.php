@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Task;
 use Illuminate\Support\Facades\Auth;
 
-Route::get('/', function () {
-    return redirect('tasks');
-});
+// Route::get('/', function () {
+//     return redirect('tasks');
+// });
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -24,29 +24,12 @@ Route::resource('tasks', TaskController::class)
     ->only(['index', 'show', 'store', 'edit', 'update', 'destroy'])
     ->middleware(['auth', 'verified']);
 
-
-
-
-// Route::post('/tasks', function () {
-//     return view('tasks.post_form', [
-//         'message' => 'Your form has been submitted successfully!',
-//     ]);
-// })->name('tasks.post_form');
-
 // Route::get('/tasks/{id}', function ($id) {
 //     $tasks = Task::where('user_id', $id)->get();
 //     return view('user_task', ['tasks' => $tasks]);
 // })->name('tasks.show');
 
-require __DIR__.'/auth.php';
-
-
-
-
-
-// Route::get('/', function () {
-//     return redirect()->route('tasks.index');
-// });
-
 // typical example of a query. as used in tinker
 // \App\Models\Task::select('user_id', 'title')->where('status', 'false')->limit(10)->get();
+
+require __DIR__.'/auth.php';
