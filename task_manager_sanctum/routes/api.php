@@ -16,13 +16,15 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Route::apiResource('/auth', AuthController::class);
-Route::post('/register', [AuthController::class, 'register'])->name('register');
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    // return $request->user();
-    return response()->json([
-        'user' => $request->user()
-    ]);
-})->name('user');
+Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', function (Request $request) {
+        return response()->json([
+            'user' => $request->user()
+        ]);
+    });
+});

@@ -45,7 +45,7 @@ class AuthController extends Controller
             'message' => 'User registered successfully',
         ], 201);
     }
-
+    
     public function login(Request $request)
     {
         // Validate the request data
@@ -53,29 +53,43 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
-
+    
         // Attempt to authenticate the user
-        if (Auth::attempt($credentials)) {
-            // Authentication successful
-            $user = Auth::user();
-
-            $token = $user->createToken('api-token', ['DAY_1'])->plainTextToken;
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Login successful',
-                'user' => $user,
-                // Generate a token with expiration time (1 day)
-                'token' => $token,
-            ]);
-        } else {
+        if (!Auth::attempt($credentials)) {
             // Authentication failed
             return response()->json([
                 'status' => 'error',
                 'message' => 'Invalid credentials',
             ], 401);
         }
+    
+        // Authentication successful
+        $user = Auth::user();
+    
+        // Retrieve the user details from the database
+        $userFromDB = User::where('email', $credentials['email'])->first();
+    
+        // Compare the user details
+        if (!$userFromDB || !Hash::check($credentials['password'], $userFromDB->password)) {
+            // Authentication failed
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+    
+        // Generate a token with expiration time (1 day)
+        $token = $user->createToken('api-token', ['DAY_1'])->plainTextToken;
+    
+        // Return the user details and token in the JSON response
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'user' => $userFromDB,
+            'token' => $token,
+        ]);
     }
+    
 
     public function logout(Request $request)
     {
