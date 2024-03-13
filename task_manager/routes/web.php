@@ -32,4 +32,4 @@ Route::resource('tasks', TaskController::class)
 // typical example of a query. as used in tinker
 // \App\Models\Task::select('user_id', 'title')->where('status', 'false')->limit(10)->get();
 
-require __DIR__.'/auth.php';
+// require __DIR__.'/auth.php';

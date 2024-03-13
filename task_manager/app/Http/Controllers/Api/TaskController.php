@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
@@ -13,25 +14,19 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
-        try {
-            $user = $request->user();
-            $tasks = Task::where('user_id', $user->id)->latest()->get();
-            
-            return response()->json([
-                'status' => 'success',
-                'count' => count($tasks),
-                'tasks' => $tasks,
-            ], 200);
-        } catch (\Exception $e) {
-            // Log the exception for debugging purposes
-            logger()->error('Failed to fetch tasks: ' . $e->getMessage());
-            
-            // Return an error response
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to fetch tasks',
-            ], 500);
+        if (Auth::user()->id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
+ 
+        $user = $request->user();
+        $tasks = Task::where('user_id', $user->id)->latest()->get();
+        
+        return response()->json([
+            'status' => 'success',
+            'count' => count($tasks),
+            'tasks' => $tasks,
+        ], 200);
+
     }
     
     
