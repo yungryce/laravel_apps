@@ -18,8 +18,9 @@ class TaskController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
  
-        $user = $request->user();
-        $tasks = Task::where('user_id', $user->id)->latest()->get();
+        $user = Auth::user();
+        $tasks = Task::with('users')->where('user_id', $user->id)->latest()->get();
+        // $tasks = Task::where('user_id', $user->id)->latest()->get();
         
         return response()->json([
             'status' => 'success',
@@ -38,17 +39,21 @@ class TaskController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
+            'assigned_users' => 'nullable|array', // Array of user IDs
+            'assigned_users.*' => 'exists:users,id', // Validate each user ID exists in the users table
         ]);
+
+        $task = Auth::user()->tasks()->create($validated);
+        if ($task) {
+            // Attach additional users to the task if specified
+            if ($request->has('assigned_users')) {
+                $task->users()->attach($validated['assigned_users']);
+            }
     
-        $tasks = $request->user()->tasks();
-    
-        // Create the task and check if it was successfully created
-        if ($tasks->create($validated)) {
             return response()->json([
                 'status' =>'success',
                 'message' => 'Task created successfully!',
-                'task' => $tasks->latest()->get(),
-                'count' => $tasks->count()
+                'task' => $task,
             ], 201);
         } else {
             // Handle the case where the task creation failed
@@ -70,6 +75,9 @@ class TaskController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
+        // Eager load the 'users' relationship to fetch all users associated with the task
+        $task->load('users');
+
         // Return the task details
         return response()->json([
             'status' => 'success',
@@ -82,34 +90,33 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
-        $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'status' => 'sometimes|required|boolean',
-        ]);
+        try {
+            // Authorize the update action using the TaskPolicy
+            $this->authorize('update', $task);
     
-        if ($request->has('title') && $request->has('description')) {
-            $task->update([
-                'title' => $validated['title'],
-                'description' => $validated['description'],
+            // Validate the request data
+            $validated = $request->validate([
+                'title' => 'sometimes|required|string|max:255',
+                'description' => 'sometimes|required|string',
+                'status' => 'sometimes|required|in:start,pending,in progress,done,close', // Validate against the allowed status values
             ]);
-        } elseif ($request->has('status')) {
-            $task->update([
-                'status' => !$task->status,
-            ]);
-        } else {
+    
+            // Update the task with the validated data
+            $task->update($validated);
+    
             return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid request. Please provide valid parameters.'
-            ], 422);
+                'status' => 'success',
+                'message' => 'Task details updated successfully.',
+                'task' => $task->refresh(), // Refresh the task to get the latest data
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        } catch (\Exception $e) {
+            // Log the error or handle it as needed
+            return response()->json(['error' => 'Internal server error'], 500);
         }
-    
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Task details updated successfully.',
-            'task' => $task->refresh(), // Refresh the task to get the latest data
-        ], 200);
     }
+    
     
 
     /**
@@ -117,6 +124,8 @@ class TaskController extends Controller
      */
     public function destroy(Task $task)
     {
+        $this->authorize('delete', $task);
+
         if ($task->delete()) {
             return response()->json([
                 'status' => 'success',
