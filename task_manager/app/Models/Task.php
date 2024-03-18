@@ -16,7 +16,7 @@ class Task extends Model
         'status',
     ];
 
-    public function user(): BelongsToMany
+    public function users()
     {
         return $this->belongsToMany(User::class);
     }

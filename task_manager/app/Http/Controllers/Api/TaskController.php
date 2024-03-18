@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\UnauthorizedException;
 
 class TaskController extends Controller
 {
@@ -19,7 +20,8 @@ class TaskController extends Controller
         }
  
         $user = Auth::user();
-        $tasks = Task::with('users')->where('user_id', $user->id)->latest()->get();
+        // $tasks = Task::with('users')->where('user_id', $user->id)->latest()->get();
+        $tasks = $user->tasks()->with('users')->latest()->get();
         // $tasks = Task::where('user_id', $user->id)->latest()->get();
         
         return response()->json([
@@ -44,6 +46,7 @@ class TaskController extends Controller
         ]);
 
         $task = Auth::user()->tasks()->create($validated);
+        
         if ($task) {
             // Attach additional users to the task if specified
             if ($request->has('assigned_users')) {
@@ -70,8 +73,11 @@ class TaskController extends Controller
      */
     public function show(Task $task)
     {
-        // Check if the authenticated user owns the task
-        if (Auth::user()->id !== $task->user_id) {
+        // Check if the authenticated user is among the users associated with the task
+        $authenticatedUser = Auth::user();
+        $associatedUsersIds = $task->users->pluck('id')->toArray();
+
+        if (!in_array($authenticatedUser->id, $associatedUsersIds)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -90,17 +96,41 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
+        // Validate the request data
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'status' => 'sometimes|required|in:start,pending,in progress,done,close', // Validate against the allowed status values
+            'assigned_users' => 'nullable|array', // Array of user IDs
+            'assigned_users.*' => 'exists:users,id', // Validate each user ID exists in the users table
+        ]);
+
+        $user = Auth::user();
+
+        if (($request->status === 'start' || $request->status === 'close' || $request->title || $request->description)
+        && $task->users()->where('users.id', $user->id)->exists()) {
+            if (($user->role->name === 'manager') && $task->users()->whereHas('role', function ($query) {
+                $query->where('name', 'admin');
+            })->exists()) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+            if (($user->role->name === 'dev') && $task->users()->whereHas('role', function ($query) {
+                $query->whereIn('name', ['admin', 'manager']);
+            })->exists()) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+            if ($user->role->name === 'regular' && $task->users()->whereHas('role', function ($query) {
+                $query->whereIn('name', ['admin', 'manager', 'dev']);
+            })->exists()) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+        }
+
+        if ($request->has('assigned_users')) {
+            $task->users()->attach($validated['assigned_users']);
+        }
+        
         try {
-            // Authorize the update action using the TaskPolicy
-            $this->authorize('update', $task);
-    
-            // Validate the request data
-            $validated = $request->validate([
-                'title' => 'sometimes|required|string|max:255',
-                'description' => 'sometimes|required|string',
-                'status' => 'sometimes|required|in:start,pending,in progress,done,close', // Validate against the allowed status values
-            ]);
-    
             // Update the task with the validated data
             $task->update($validated);
     
@@ -109,13 +139,12 @@ class TaskController extends Controller
                 'message' => 'Task details updated successfully.',
                 'task' => $task->refresh(), // Refresh the task to get the latest data
             ], 200);
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
-            return response()->json(['error' => 'Unauthorized'], 403);
         } catch (\Exception $e) {
             // Log the error or handle it as needed
             return response()->json(['error' => 'Internal server error'], 500);
         }
     }
+    
     
     
 
@@ -126,12 +155,13 @@ class TaskController extends Controller
     {
         $this->authorize('delete', $task);
 
-        if ($task->delete()) {
+        try {
+            $task->delete();
             return response()->json([
                 'status' => 'success',
                 'message' => 'Task deleted successfully'
             ], 200);
-        } else {
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to delete task'

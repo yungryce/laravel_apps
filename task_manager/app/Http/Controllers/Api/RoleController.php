@@ -1,27 +1,28 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
-use App\Models\Role;
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-class UserController extends Controller
+class RoleController extends Controller
 {
-    /**
+        /**
      * Retrieve roles with their associated users.
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getUserRoles()
+    public function getUserRoles(User $user)
     {
         try {
-            // Fetch roles with their associated users
-            $roles = Role::with('users')->get();
-
+            // Fetch roles associated with the specified user
+            $role = $user->role()->get();
+    
             return response()->json([
-                'roles' => $roles,
+                'user' => $user,
+                'roles' => $role,
             ], 200);
         } catch (\Exception $e) {
             // Log the error or handle it as needed

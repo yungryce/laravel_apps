@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -25,11 +26,9 @@ class TaskFactory extends Factory
         $index = $this->sequence() ?? 0;
     
         return [
-            // 'title' => $this->faker->sentence, (extends Laravel's TestCase)
-            'user_id' => $this->faker->randomElement(User::pluck('id')),
             'title' => fake()->sentence,
             'description' => fake()->paragraph(5, true),
-            'status' => fake()->boolean,
+            'status' => $this->faker->randomElement(['start', 'pending', 'in progress', 'done', 'close']),
         ];
     }
 }

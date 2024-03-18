@@ -2,9 +2,11 @@
 
 namespace App\Policies;
 
+use App\Models\Role;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Log;
 
 class TaskPolicy
 {
@@ -37,49 +39,47 @@ class TaskPolicy
      */
     public function update(User $user, Task $task): bool
     {
-        if ($user->id === $task->user_id && ($user->role->name === 'admin' || $user->role->name === 'manager')) {
-            // Check if the user owns the task or if any privileged user is assigned
-                return true;
-        }
+        // // Check if the task does not have a privileged user assigned
+        // if (!$task->users()->whereHas('role', function ($query) {
+        //     $query->where('name', 'admin')->orWhere('name', 'manager');
+        // })->exists()) {
+        //     // Allow the task owner to update all fields 
+        //     return true;
+        // }
 
-        // Check if the user owns the task
-        if ($user->id === $task->user_id) {
-            // Check if the task does not have a privileged user assigned
-            if (!$task->users()->whereHas('role', function ($query) {
-                $query->where('name', 'admin')->orWhere('name', 'manager');
-            })->exists()) {
-                // Allow the task owner to update all fields 
-                    return true;
-            }
-            elseif (!$task->title && !$task->description && $task->status !== 'start' && $task->status !== 'close') {
-                return true;
-            }
-        }
-
-        // Deny access by default
-        return false;
+        // // Check if the authenticated user owns the task directly or through the pivot table
+        // if ($task->users()->where('users.id', $user->id)->exists()) {
+        //     return true;
+        // }
+        
+        // // Deny access if the task is not in a state that can be updated by the user
+        // return false;
     }
+    
 
     /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Task $task): bool
     {
-        if ($user->id === $task->user_id && ($user->role->name === 'admin' || $user->role->name === 'manager')) {
-            // Check if the user owns the task or if any privileged user is assigned
-                return true;
-        }
-                // Check if the user owns the task
-        if ($user->id === $task->user_id) {
-            // Check if the task does not have a privileged user assigned
-            if (!$task->users()->whereHas('role', function ($query) {
-                $query->where('name', 'admin')->orWhere('name', 'manager');
+        if ($task->users()->where('users.id', $user->id)->exists()) {
+            if (($user->role->name === 'manager') && $task->users()->whereHas('role', function ($query) {
+                $query->where('name', 'admin');
             })->exists()) {
-                // Allow the task owner to update all fields 
-                    return true;
+                return false;
+            }
+            if (($user->role->name === 'dev') && $task->users()->whereHas('role', function ($query) {
+                $query->whereIn('name', ['admin', 'manager']);
+            })->exists()) {
+                return false;
+            }
+            if ($user->role->name === 'regular' && $task->users()->whereHas('role', function ($query) {
+                $query->whereIn('name', ['admin', 'manager', 'dev']);
+            })->exists()) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     /**
